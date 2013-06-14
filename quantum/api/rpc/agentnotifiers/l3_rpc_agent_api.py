@@ -63,7 +63,7 @@ class L3AgentNotifyAPI(proxy.RpcProxy):
                           {'topic': l3_agent.topic,
                            'host': l3_agent.host,
                            'method': method})
-                self.cast(
+                self.fanout_cast(
                     context, self.make_msg(method,
                                            routers=[router]),
                     topic='%s.%s' % (l3_agent.topic, l3_agent.host))

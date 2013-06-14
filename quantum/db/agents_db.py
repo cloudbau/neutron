@@ -127,6 +127,31 @@ class AgentDbMixin(ext_agent.AgentPluginBase):
             raise ext_agent.MultipleAgentFoundByTypeHost(agent_type=agent_type,
                                                          host=host)
 
+    def _get_l3_agent(self, context, agent_type, host, extern_net_id):
+        query = self._model_query(context, Agent)
+        try:
+            agent_dbs = query.filter(Agent.agent_type == agent_type,
+                                     Agent.host == host).all()
+            for agent in agent_dbs:
+                confs = self.get_configuration_dict(agent)
+                if confs['gateway_external_network_id'] == extern_net_id:
+                    return agent
+            else:
+                raise ext_agent.AgentNotFoundByTypeHost
+        except exc.NoResultFound:
+            raise ext_agent.AgentNotFoundByTypeHost(agent_type=agent_type,
+                                                    host=host)
+        except exc.MultipleResultsFound:
+            raise ext_agent.MultipleAgentFoundByTypeHost(agent_type=agent_type,
+                                                         host=host)
+
+    def _get_all_l3_agents(self, context, host):
+        query = self._model_query(context, Agent)
+        try:
+            return query.filter(Agent.host == host).all()
+        except exc.NoResultFound:
+            raise ext_agent.AgentNotFoundByTypeHost(host=host)
+
     def get_agent(self, context, id, fields=None):
         agent = self._get_agent(context, id)
         return self._make_agent_dict(agent, fields)
@@ -141,8 +166,18 @@ class AgentDbMixin(ext_agent.AgentPluginBase):
             res['configurations'] = jsonutils.dumps(configurations_dict)
             current_time = timeutils.utcnow()
             try:
-                agent_db = self._get_agent_by_type_and_host(
-                    context, agent['agent_type'], agent['host'])
+                # FIXME (Mouad): Old l3-agent are not deleted when
+                # gateway_external_network_id is changed before restart.
+                extern_net_id = configurations_dict.get(
+                    'gateway_external_network_id')
+                if extern_net_id is not None:
+                    agent_db = self._get_l3_agent(
+                        context, agent['agent_type'], agent['host'],
+                        extern_net_id
+                    )
+                else:
+                    agent_db = self._get_agent_by_type_and_host(
+                        context, agent['agent_type'], agent['host'])
                 res['heartbeat_timestamp'] = current_time
                 if agent.get('start_flag'):
                     res['started_at'] = current_time

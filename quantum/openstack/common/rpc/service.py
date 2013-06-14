@@ -53,7 +53,10 @@ class Service(service.Service):
         self.conn.create_consumer(self.topic, dispatcher, fanout=False)
 
         node_topic = '%s.%s' % (self.topic, self.host)
-        self.conn.create_consumer(node_topic, dispatcher, fanout=False)
+        # NOTE (Mouad): Allow all l3-agent to listen on 'l3_agent.<host>'
+        # queue.
+        is_fanout = self.topic == "l3_agent"
+        self.conn.create_consumer(node_topic, dispatcher, fanout=is_fanout)
 
         self.conn.create_consumer(self.topic, dispatcher, fanout=True)
 

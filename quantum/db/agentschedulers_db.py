@@ -224,21 +224,21 @@ class AgentSchedulerDbMixin(agentscheduler.AgentSchedulerPluginBase,
 
     def list_active_sync_routers_on_active_l3_agent(
             self, context, host, router_id):
-        agent = self._get_agent_by_type_and_host(
-            context, constants.AGENT_TYPE_L3, host)
-        if not agent.admin_state_up:
-            return []
-        query = context.session.query(RouterL3AgentBinding.router_id)
-        query = query.filter(
-            RouterL3AgentBinding.l3_agent_id == agent.id)
-        if router_id:
-            query = query.filter(RouterL3AgentBinding.router_id == router_id)
-        router_ids = query.all()
-        if router_ids:
-            _ids = [item[0] for item in router_ids]
-            routers = self.get_sync_data(context, router_ids=_ids,
-                                         active=True)
-            return routers
+        l3_agents = self._get_all_l3_agents(context, host)
+        for agent in l3_agents:
+            if not agent.admin_state_up:
+                continue
+            query = context.session.query(RouterL3AgentBinding.router_id)
+            query = query.filter(
+                RouterL3AgentBinding.l3_agent_id == agent.id)
+            if router_id:
+                query = query.filter(RouterL3AgentBinding.router_id == router_id)
+            router_ids = query.all()
+            if router_ids:
+                _ids = [item[0] for item in router_ids]
+                routers = self.get_sync_data(context, router_ids=_ids,
+                                             active=True)
+                return routers
         return []
 
     def get_l3_agents_hosting_routers(self, context, router_ids,
